@@ -1,17 +1,16 @@
 # ai-fitness-widget
-IOS-Widget for German AI-Fitness Utilization
+IOS-Widget für die Auslastungsanzeige von AI-Fitness Studios mit der [Scriptable](https://scriptable.app/) App
 
-## How to install
+## Installation
 
-1. Copy GymStatus.js into your Scriptable app
-2. Run the script once in the Scriptable app (not as widget) to select your preferred studio
-3. Add a new Scriptable widget to your home screen
-4. Select GymStatus.js as the script for the widget
-5. The widget will automatically refresh every 15 minutes to show current gym utilization
+1. Kopiere GymStatus.js in deine Scriptable App
+2. Führe das Skript einmal in der Scriptable App aus (nicht als Widget), um dein Studio auszuwählen
+3. Füge ein neues Scriptable Widget zu deinem Homescreen hinzu
+4. Wähle GymStatus.js als Skript für das Widget aus
+5. Das Widget aktualisiert sich automatisch alle 15 Minuten, um die aktuelle Studioauslastung anzuzeigen
 
-### Preview
-| Light Mode | Dark Mode |
-|------------|-----------|
-| ![Widget Preview Light](.github/images/preview-light.jpeg) | ![Widget Preview Dark](.github/images/preview-dark.jpeg) |
-
+### Vorschau
+| Heller Modus | Dunkler Modus |
+|--------------|---------------|
+| ![Widget Vorschau Hell](.github/images/preview-light.jpeg) | ![Widget Vorschau Dunkel](.github/images/preview-dark.jpeg) |
 
