@@ -1,5 +1,5 @@
 # ai-fitness-widget
-IOS-Widget für die Auslastungsanzeige von AI-Fitness Studios mit der [Scriptable](https://scriptable.app/) App
+IOS-Widget für wie voll dein AI Fitness (all inclusive Fitness) ist mit der [Scriptable](https://scriptable.app/) App.
 
 ## Installation
 
