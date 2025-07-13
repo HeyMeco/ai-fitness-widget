@@ -1,5 +1,5 @@
 # ai-fitness-widget
-IOS-Widget für wie voll dein AI Fitness (all inclusive Fitness) ist mit der [Scriptable](https://scriptable.app/) App.
+Ein iOS-Widget, welches dir verrät wie voll dein AI Fitness (all inclusive Fitness)-Studio ist, umgesetzt mit der [Scriptable](https://scriptable.app/) App, erhältlich für iPhone.
 
 ## Installation
 
