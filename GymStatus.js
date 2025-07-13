@@ -1,65 +1,213 @@
-let req = new Request("https://connect.e-app.eu:57319/easyWeb.svc/eApps/widgets");
-req.method = "post";
-req.headers = {
-"Connection": "keep-alive",
-"Accept": "application/json, text/plain, */*",
-"Accept-Encoding": "gzip, deflate, br",
-"Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
-"Content-Type": "text/plain",
-"User-Agent": "Mozilla/5.0 (iPhone; CPU OS 11_0 like Mac OS X) AppleWebKit/604.1.34 (KHTML, like Gecko) Version/11.0 Mobile/15A5341f Safari/604.1 Edg/95.0.4638.0",
-"Origin": "https://eliveauslastung.e-app.eu",
-"Sec-Fetch-Site": "same-site",
-"Sec-Fetch-Mode": "cors",
-"Sec-Fetch-Dest": "empty",
-"Referer": "https://eliveauslastung.e-app.eu/",
-"Host": "connect.e-app.eu:57319",
-"Content-Length": "75"
-};
+// Configuration management
+const CONFIG_KEY = "selectedStudio";
 
-var studioS = "FSF-Essen1";
-
-req.body = JSON.stringify({ call: "GeteLiveauslastung", useWS: 0, studio: ''+ studioS +''})
-
-let res = await req.loadJSON();
-var personen = Math.ceil(250/100 * res.Wert1);
-
-if (config.runsInWidget) {
-	
-   let widget = createWidget('' + studioS + ' ist zu:', `${res.Wert1}% gefüllt \n${personen}/250 Personen`)
-
-  Script.setWidget(widget)
-
-}
-else{
-  console.log('' + studioS + ' ist zu: ' + res.Wert1 +'% gefüllt' )
-  console.log(`Das sind: ` + personen +' Personen' )
+// Function to get saved studio configuration
+function getSavedStudio() {
+    try {
+        return Keychain.contains(CONFIG_KEY) ? JSON.parse(Keychain.get(CONFIG_KEY)) : null;
+    } catch (e) {
+        return null;
+    }
 }
 
+// Function to save studio configuration
+function saveStudio(studio) {
+    Keychain.set(CONFIG_KEY, JSON.stringify(studio));
+}
 
-Script.complete()
-function createWidget(title, subtitle) {
-  
-  let w = new ListWidget()
+// Function to fetch all studios
+async function fetchAllStudios() {
+    let req = new Request("https://www.ai-fitness.de/connect/v2/studio");
+    req.method = "get";
+    req.headers = {
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Scriptable/1.0 (iOS; Scriptable Widget)"
+    };
     
-  let nextRefresh = Date.now() + 1000*60*15
-  
-  w.refreshAfterDate = new Date(nextRefresh)
- let lightColor = Color.white()
- let darkColor = Color.black()
-  w.backgroundColor = Color.dynamic(lightColor,darkColor)
-  
-   let titleTxt = w.addText(title)
-   titleTxt.textColor = Color.dynamic(darkColor,lightColor)
-   titleTxt.font = Font.systemFont(18)
-   w.addSpacer(5)
-   let subTxt = w.addText(subtitle)
-   subTxt.textColor = Color.dynamic(darkColor,lightColor)
-   subTxt.textOpacity = 0.8
-   subTxt.font = Font.systemFont(15)
-  
-   return w
+    try {
+        return await req.loadJSON();
+    } catch (e) {
+        console.log("Error fetching studios: " + e);
+        return [];
+    }
 }
 
-if (config.runsWithSiri) {
-    Speech.speak('' + studioS + ' ist zu: ' + res.Wert1 +'% gefüllt')
+// Function to show studio selection
+async function showStudioSelection(studios) {
+    let alert = new Alert();
+    alert.title = "Select AI Fitness Studio";
+    alert.message = "Choose your preferred studio:";
+    
+    // Sort studios by name
+    studios.sort((a, b) => a.studioName.localeCompare(b.studioName));
+    
+    // Add studio options
+    for (let studio of studios) {
+        let displayName = studio.studioName;
+        if (studio.address && studio.address.city) {
+            displayName += ` (${studio.address.city})`;
+        }
+        alert.addAction(displayName);
+    }
+    
+    alert.addCancelAction("Cancel");
+    
+    let response = await alert.presentAlert();
+    
+    if (response === -1) {
+        // User cancelled
+        return null;
+    }
+    
+    return studios[response];
 }
+
+// Main execution
+async function main() {
+    // If running in widget, use saved configuration
+    if (config.runsInWidget) {
+        let savedStudio = getSavedStudio();
+        
+        if (!savedStudio) {
+            console.log("No studio configured. Please run this script in the app first to select a studio.");
+            return;
+        }
+        
+        // Use saved studio for widget
+        await fetchAndDisplayUtilization(savedStudio);
+        return;
+    }
+    
+    // If running in app, always show studio selection
+    console.log("Fetching available studios...");
+    
+    let studios = await fetchAllStudios();
+    
+    if (studios.length === 0) {
+        console.log("No studios found or error occurred.");
+        return;
+    }
+    
+    console.log(`Found ${studios.length} studios. Please select one:`);
+    
+    let selectedStudio = await showStudioSelection(studios);
+    
+    if (selectedStudio) {
+        saveStudio(selectedStudio);
+        console.log(`Selected: ${selectedStudio.studioName}`);
+        
+        // Fetch and display utilization for selected studio
+        await fetchAndDisplayUtilization(selectedStudio);
+    } else {
+        console.log("No studio selected.");
+    }
+}
+
+// Function to fetch and display utilization data
+async function fetchAndDisplayUtilization(studio) {
+    let studioId = studio.id;
+    let studioName = studio.studioName;
+    
+    let req = new Request("https://www.ai-fitness.de/connect/v1/studio/" + studioId + "/utilization");
+    req.method = "get";
+    req.headers = {
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Scriptable/1.0 (iOS; Scriptable Widget)"
+    };
+
+    try {
+        let res = await req.loadJSON();
+
+        // Find the current time slot
+        let currentItem = null;
+        for (let item of res.items) {
+            if (item.isCurrent) {
+                currentItem = item;
+                break;
+            }
+        }
+
+        let percentage, timeSlot;
+        if (currentItem) {
+            percentage = currentItem.percentage;
+            timeSlot = currentItem.startTime + " - " + currentItem.endTime;
+        } else {
+            percentage = 0;
+            timeSlot = "Gym is closed";
+        }
+
+        if (config.runsInWidget) {
+            let widget = createWidget(studioName + ' ist zu:', `${percentage}% gefüllt \n${timeSlot}`);
+            Script.setWidget(widget);
+        } else {
+            console.log(studioName + ' ist zu: ' + percentage + '% gefüllt');
+            console.log(`Zeit: ${timeSlot}`);
+        }
+
+        if (config.runsWithSiri) {
+            Speech.speak(studioName + ' ist zu: ' + percentage + '% gefüllt');
+        }
+        
+    } catch (e) {
+        console.log("Error fetching utilization data: " + e);
+        if (config.runsInWidget) {
+            let widget = createWidget("Error", "Could not fetch data");
+            Script.setWidget(widget);
+        }
+    }
+}
+
+// Widget creation function
+function createWidget(title, subtitle) {
+    let w = new ListWidget();
+    
+    let nextRefresh = Date.now() + 1000 * 60 * 15;
+    w.refreshAfterDate = new Date(nextRefresh);
+    
+    // Create gradient background using AI Fitness brand colors
+    let gradient = new LinearGradient();
+    gradient.colors = [new Color("#e30613"), Color.dynamic(new Color("#ff6b6b"), new Color("#8b0000"))];
+    gradient.locations = [0, 1];
+    
+    w.backgroundGradient = gradient;
+    
+    // Add padding
+    w.setPadding(12, 12, 12, 12);
+    
+    // Create main stack
+    let mainStack = w.addStack();
+    mainStack.layoutVertically();
+    mainStack.spacing = 8;
+    
+    // Title
+    let titleTxt = mainStack.addText(title);
+    titleTxt.textColor = Color.white();
+    titleTxt.font = Font.boldSystemFont(16);
+    titleTxt.minimumScaleFactor = 0.7;
+    titleTxt.lineLimit = 2;
+    
+    mainStack.addSpacer(4);
+    
+    // Percentage display with larger font
+    let percentageText = mainStack.addText(subtitle.split('\n')[0]);
+    percentageText.textColor = Color.white();
+    percentageText.font = Font.boldSystemFont(24);
+    percentageText.textOpacity = 1;
+    
+    mainStack.addSpacer(2);
+    
+    // Time slot with smaller font
+    let timeText = mainStack.addText(subtitle.split('\n')[1] || "");
+    timeText.textColor = Color.dynamic(new Color("#59595d"), new Color("#dedede"));
+    timeText.font = Font.systemFont(12);
+    timeText.textOpacity = 0.9;
+    
+    // Add bottom spacer for better spacing
+    mainStack.addSpacer(4);
+    
+    return w;
+}
+
+// Run the main function
+await main();
+Script.complete();
